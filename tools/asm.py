@@ -110,6 +110,14 @@ BRANCH_OPS = {"beq": 0, "bne": 1, "blt": 4, "bge": 5, "bltu": 6, "bgeu": 7}
 MEM_RE = re.compile(r"^(-?\w+)\((\w+)\)$")
 
 
+def mem_operand(s):
+    """Parse 'offset(reg)' -> (offset, regnum)."""
+    m = MEM_RE.match(s.strip())
+    if not m:
+        raise AsmError(f"bad memory operand '{s}'")
+    return imm(m.group(1)), reg(m.group(2))
+
+
 def split_hi_lo(val):
     """Split a 32-bit value for lui+addi (addi sign-extends, so round hi up)."""
     val &= 0xFFFFFFFF
@@ -147,15 +155,11 @@ def encode(mn, args, addr, labels):
         f7, f3 = SHIFT_OPS[mn]
         return [enc_shift_i(f7, f3, reg(args[0]), reg(args[1]), imm(args[2]))]
     if mn in LOAD_OPS:
-        m = MEM_RE.match(args[1].strip())
-        if not m:
-            raise AsmError(f"bad memory operand '{args[1]}'")
-        return [enc_i(LOAD_OPS[mn], 0x03, reg(args[0]), reg(m.group(2)), imm(m.group(1)))]
+        off, base = mem_operand(args[1])
+        return [enc_i(LOAD_OPS[mn], 0x03, reg(args[0]), base, off)]
     if mn in STORE_OPS:
-        m = MEM_RE.match(args[1].strip())
-        if not m:
-            raise AsmError(f"bad memory operand '{args[1]}'")
-        return [enc_s(STORE_OPS[mn], reg(args[0]), reg(m.group(2)), imm(m.group(1)))]
+        off, base = mem_operand(args[1])
+        return [enc_s(STORE_OPS[mn], reg(args[0]), base, off)]
     if mn in BRANCH_OPS:
         target = imm(args[2], labels)
         return [enc_b(BRANCH_OPS[mn], reg(args[0]), reg(args[1]), target - addr)]
@@ -172,10 +176,8 @@ def encode(mn, args, addr, labels):
     if mn == "jalr":
         if len(args) == 1:          # jalr rs1   -> ra, 0(rs1)
             return [enc_i(0, 0x67, 1, reg(args[0]), 0)]
-        m = MEM_RE.match(args[1].strip())
-        if not m:
-            raise AsmError(f"bad memory operand '{args[1]}'")
-        return [enc_i(0, 0x67, reg(args[0]), reg(m.group(2)), imm(m.group(1)))]
+        off, base = mem_operand(args[1])
+        return [enc_i(0, 0x67, reg(args[0]), base, off)]
     if mn == "ecall":
         return [0x00000073]
     if mn == "ebreak":
@@ -190,8 +192,6 @@ def encode(mn, args, addr, labels):
         return [enc_i(0, 0x13, reg(args[0]), reg(args[1]), 0)]
     if mn == "not":
         return [enc_i(4, 0x13, reg(args[0]), reg(args[1]), -1)]
-    if mn == "neg":
-        return [enc_r(0x20, 0, reg(args[0]), 0, reg(args[1]))]
     if mn == "seqz":
         return [enc_i(3, 0x13, reg(args[0]), reg(args[1]), 1)]
     if mn == "snez":
@@ -214,10 +214,6 @@ def encode(mn, args, addr, labels):
         return [enc_b(0, reg(args[0]), 0, imm(args[1], labels) - addr)]
     if mn == "bnez":
         return [enc_b(1, reg(args[0]), 0, imm(args[1], labels) - addr)]
-    if mn == "bgtz":
-        return [enc_b(4, 0, reg(args[0]), imm(args[1], labels) - addr)]
-    if mn == "blez":
-        return [enc_b(5, 0, reg(args[0]), imm(args[1], labels) - addr)]
 
     raise AsmError(f"unknown instruction '{mn}'")
 
@@ -276,9 +272,6 @@ def assemble(path):
             elif mn == ".word":
                 addr = (addr + 3) & ~3
                 addr += 4 * len(args)
-            elif mn == ".align":
-                a = 1 << imm(args[0])
-                addr = (addr + a - 1) & ~(a - 1)
             elif mn is not None:
                 addr = (addr + 3) & ~3          # instructions are word-aligned
                 addr += inst_size(mn, args)
@@ -302,10 +295,6 @@ def assemble(path):
                     val = imm(a, labels)
                     check_range(val, -(1 << 31), (1 << 32) - 1, ".word value")
                     out += (val & 0xFFFFFFFF).to_bytes(4, "little")
-            elif mn == ".align":
-                a = 1 << imm(args[0])
-                while len(out) % a:
-                    out.append(0)
             else:
                 while len(out) % 4:
                     out.append(0)

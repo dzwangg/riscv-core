@@ -27,6 +27,7 @@ printing one byte at a time through a memory-mapped console port.
 | Testbench | `tb/tb.v` | 64 KiB RAM, console MMIO, cycle limit, optional VCD waveform dump |
 | Assembler | `tools/asm.py` | Two-pass RV32I assembler (labels, pseudo-instructions, `.word`/`.asciz` data) |
 | Tests | `tests/*.s` | 15 self-checking programs, ~160 individual assertions |
+| Compliance | `compliance/` | The official [riscv-tests](https://github.com/riscv-software-src/riscv-tests) ISA suite: 41/41 rv32ui tests pass |
 | Demos | `programs/*.s` | `hello.s`, `sierpinski.s` |
 
 ## Quick start
@@ -36,6 +37,9 @@ brew install icarus-verilog   # or: apt install iverilog
 make test                     # assemble + run the whole suite
 make hello                    # run a demo program
 python3 run_tests.py programs/hello.s --vcd wave.vcd   # dump a waveform
+
+brew install riscv64-elf-gcc  # for the official ISA tests
+make compliance               # build + run riscv-tests rv32ui with real GCC
 ```
 
 ## How it works
@@ -84,6 +88,12 @@ Coverage was validated by mutation testing: seeded bugs (SLTU as `<=`, a
 16-entry register file, JALR without bit-0 clearing, branches writing a
 destination register) all fail the suite.
 
+On top of the in-house suite, `make compliance` runs the official
+`riscv-tests` rv32ui ISA tests — compiled with the real RISC-V GCC toolchain
+against a minimal port of the test environment (`compliance/env/`). All 41
+applicable tests pass; only the misaligned-access test is skipped, matching
+the core's documented alignment requirement.
+
 ## Limitations (by design)
 
 - RV32I base ISA only — no M/C extensions, CSRs, or interrupts; `fence` is a
@@ -94,6 +104,6 @@ destination register) all fail the suite.
 
 ## Roadmap
 
+- [x] Run the official `riscv-tests` suite via the RISC-V GCC toolchain
 - [ ] 5-stage pipeline (IF/ID/EX/MEM/WB) with forwarding and hazard detection
-- [ ] Run the official `riscv-tests` suite via the RISC-V GCC toolchain
 - [ ] Synthesize with Yosys + nextpnr for an iCE40 FPGA; UART console

@@ -7,3 +7,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y iverilog
       - run: make test
+  compliance:
+    runs-on: ubuntu-latest
+    env:
+      RISCV_PREFIX: riscv64-unknown-elf-
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y iverilog gcc-riscv64-unknown-elf
+      - run: make compliance

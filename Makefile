@@ -1,6 +1,9 @@
 test:
 	python3 run_tests.py
 
+compliance:
+	python3 compliance/run_compliance.py
+
 hello:
 	python3 run_tests.py programs/hello.s
 
@@ -10,4 +13,4 @@ sierpinski:
 clean:
 	rm -rf build
 
-.PHONY: test hello sierpinski clean
+.PHONY: test compliance hello sierpinski clean

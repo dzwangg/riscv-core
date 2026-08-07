@@ -1,5 +1,7 @@
 # riscv-core
 
+![tests](https://github.com/dzwangg/riscv-core/actions/workflows/tests.yml/badge.svg)
+
 A single-cycle RISC-V (RV32I) CPU written from scratch in Verilog, with its own
 two-pass assembler and a self-checking test suite. Everything runs in simulation —
 no hardware required.
@@ -37,6 +39,9 @@ python3 run_tests.py programs/hello.s --vcd wave.vcd   # dump a waveform
 ```
 
 ## How it works
+
+*(Deeper walkthrough — life of an instruction, design decisions:
+[docs/how-it-works.md](docs/how-it-works.md))*
 
 Every clock cycle the CPU fetches the instruction at `pc`, decodes it, executes
 it, and commits the result — program counter, one optional register write, one
